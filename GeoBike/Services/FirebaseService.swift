@@ -57,28 +57,43 @@ import FirebaseAnalytics
 
 final class FirebaseUserService: UserServiceProtocol {
     private let db = Firestore.firestore()
-    private var uid: String {
-        Auth.auth().currentUser?.uid ?? "anonymous"
+    private var cachedUID: String?
+
+    // Always resolves a valid authenticated UID, signing in anonymously if needed.
+    private func ensureAuth() async throws -> String {
+        if let uid = Auth.auth().currentUser?.uid {
+            cachedUID = uid
+            return uid
+        }
+        if let cached = cachedUID { return cached }
+        let result = try await Auth.auth().signInAnonymously()
+        cachedUID = result.user.uid
+        return result.user.uid
     }
 
     func loadUser() async -> AppUser {
         do {
-            if Auth.auth().currentUser == nil {
-                try await Auth.auth().signInAnonymously()
-            }
+            let uid = try await ensureAuth()
             let snapshot = try await db.collection("users").document(uid).getDocument()
-            if let data = snapshot.data(), let user = try? Firestore.Decoder().decode(AppUser.self, from: data) {
+            if let data = snapshot.data(),
+               let user = try? Firestore.Decoder().decode(AppUser.self, from: data) {
                 return user
             }
-        } catch { print("Firebase load error:", error) }
-        return AppUser(uid: uid)
+            return AppUser(uid: uid)
+        } catch {
+            print("Firebase load error:", error)
+            return AppUser(uid: UUID().uuidString)
+        }
     }
 
     func saveUser(_ user: AppUser) async {
         do {
+            let uid = try await ensureAuth()
             let data = try Firestore.Encoder().encode(user)
             try await db.collection("users").document(uid).setData(data, merge: true)
-        } catch { print("Firebase save error:", error) }
+        } catch {
+            print("Firebase save error:", error)
+        }
     }
 
     func logEvent(_ name: String, params: [String: Any]) {

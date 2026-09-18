@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		EC02C51F305D671200D1C473 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EC02C51E305D671200D1C473 /* FirebaseAuth */; };
+		EC02C521305D671700D1C473 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EC02C520305D671700D1C473 /* FirebaseCore */; };
+		EC02C523305D672300D1C473 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EC02C522305D672300D1C473 /* FirebaseFirestore */; };
+		EC02C525305D672900D1C473 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EC02C524305D672900D1C473 /* FirebaseAnalytics */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		ECA7F272305BD12D00F071B1 /* GeoBike.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GeoBike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,16 +30,28 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EC02C521305D671700D1C473 /* FirebaseCore in Frameworks */,
+				EC02C51F305D671200D1C473 /* FirebaseAuth in Frameworks */,
+				EC02C525305D672900D1C473 /* FirebaseAnalytics in Frameworks */,
+				EC02C523305D672300D1C473 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		EC02C51D305D671200D1C473 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		ECA7F269305BD12D00F071B1 = {
 			isa = PBXGroup;
 			children = (
 				ECA7F274305BD12D00F071B1 /* GeoBike */,
+				EC02C51D305D671200D1C473 /* Frameworks */,
 				ECA7F273305BD12D00F071B1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,6 +84,10 @@
 			);
 			name = GeoBike;
 			packageProductDependencies = (
+				EC02C51E305D671200D1C473 /* FirebaseAuth */,
+				EC02C520305D671700D1C473 /* FirebaseCore */,
+				EC02C522305D672300D1C473 /* FirebaseFirestore */,
+				EC02C524305D672900D1C473 /* FirebaseAnalytics */,
 			);
 			productName = GeoBike;
 			productReference = ECA7F272305BD12D00F071B1 /* GeoBike.app */;
@@ -253,6 +276,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GeoBike utilise votre position pour trouver les stations Vélam les plus proches.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -295,6 +319,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GeoBike utilise votre position pour trouver les stations Vélam les plus proches.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -359,6 +384,29 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EC02C51E305D671200D1C473 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECA7F2A3305BEB8500F071B1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		EC02C520305D671700D1C473 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECA7F2A3305BEB8500F071B1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		EC02C522305D672300D1C473 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECA7F2A3305BEB8500F071B1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		EC02C524305D672900D1C473 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ECA7F2A3305BEB8500F071B1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = ECA7F26A305BD12D00F071B1 /* Project object */;
 }

@@ -11,37 +11,131 @@ final class StationViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var searchText = ""
-    @Published var showOnlyFavorites = false
     @Published var selectedFilter: AvailabilityFilter = .all
     @Published var appUser: AppUser = AppUser(uid: "local")
     @Published var lastRefresh: Date?
     @Published var alertedStationIDs: Set<Int> = []
 
+    // Contract / city
+    @Published var availableContracts: [Contract] = []
+    @Published var selectedContract: Contract?
+    @Published var isLoadingContracts = false
+
     // MARK: - Dependencies
     let location: LocationService
-    private let userService: FirebaseUserService()
+    private let userService: UserServiceProtocol
     private let notifications = NotificationService.shared
     private var refreshTask: Task<Void, Never>?
 
     // MARK: - Init
     init() {
         self.location = LocationService()
-        self.userService = LocalUserService()
+        self.userService = FirebaseUserService()
         Task { await loadUser() }
+    }
+
+    // MARK: - Setup (called once at launch)
+    func setup() async {
+        // Load contracts and stations concurrently
+        async let contractLoad: () = loadContractsAndAutoDetect()
+        async let userLoad: () = { @MainActor in }() // user already loading in init
+        _ = await (contractLoad, userLoad)
+        await fetchStations()
+    }
+
+    // MARK: - Contracts
+    func loadContractsAndAutoDetect() async {
+        do {
+            let contracts = try await JCDecauxAPI.shared.fetchContracts()
+            availableContracts = contracts.sorted { $0.displayName < $1.displayName }
+        } catch {
+            #if DEBUG
+            print("[ViewModel] loadContractsAndAutoDetect error: \(error)")
+            #endif
+            availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
+        }
+
+        // Restore saved city
+        if let savedName = UserDefaults.standard.string(forKey: "selected_contract"),
+           let saved = availableContracts.first(where: { $0.name == savedName }) {
+            selectedContract = saved
+            return
+        }
+
+        // Try GPS auto-detect
+        await autoDetectContract()
+
+        // Fallback to Amiens
+        if selectedContract == nil {
+            selectedContract = availableContracts.first(where: { $0.name == "Amiens" })
+        }
+    }
+
+    // Refreshes the contracts list without resetting the selected city.
+    func refreshContracts() async {
+        isLoadingContracts = true
+        defer { isLoadingContracts = false }
+        do {
+            let contracts = try await JCDecauxAPI.shared.fetchContracts()
+            if !contracts.isEmpty {
+                availableContracts = contracts.sorted { $0.displayName < $1.displayName }
+            } else if availableContracts.isEmpty {
+                availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
+            }
+        } catch {
+            #if DEBUG
+            print("[ViewModel] refreshContracts error: \(error)")
+            #endif
+            if availableContracts.isEmpty {
+                availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
+            }
+        }
+    }
+
+    func selectContract(_ contract: Contract) async {
+        let previousContract = selectedContract
+        let previousStations = allStations
+
+        selectedContract = contract
+        UserDefaults.standard.set(contract.name, forKey: "selected_contract")
+        await fetchStations()
+
+        if allStations.isEmpty && !previousStations.isEmpty {
+            // No stations returned — revert to the previous city
+            selectedContract = previousContract
+            if let prev = previousContract {
+                UserDefaults.standard.set(prev.name, forKey: "selected_contract")
+            }
+            allStations = previousStations
+            errorMessage = "\(contract.displayName) ne dispose pas de stations actives pour le moment."
+        }
+    }
+
+    private func autoDetectContract() async {
+        guard let location = location.userLocation else { return }
+        let geocoder = CLGeocoder()
+        guard let placemarks = try? await geocoder.reverseGeocodeLocation(location),
+              let city = placemarks.first?.locality else { return }
+
+        let match = availableContracts.first {
+            $0.name.localizedCaseInsensitiveContains(city) ||
+            city.localizedCaseInsensitiveContains($0.name)
+        }
+        if let match { selectedContract = match }
     }
 
     // MARK: - Filtered Stations
     var filteredStations: [Station] {
         var stations = allStations
 
-        if showOnlyFavorites {
-            stations = stations.filter { appUser.favoriteIDs.contains($0.number) }
+        if !appUser.favoriteIDs.isEmpty && selectedFilter == .all {
+            // favorites shown in dedicated tab — no extra filter here
         }
 
         switch selectedFilter {
         case .all: break
         case .available: stations = stations.filter { $0.mainStands.availabilities.bikes > 0 && $0.isOpen }
-        case .electric: stations = stations.filter { $0.mainStands.availabilities.electricalBikes > 0 }
+        case .electric:  stations = stations.filter { $0.mainStands.availabilities.electricalBikes > 0 }
         case .hasStands: stations = stations.filter { $0.mainStands.availabilities.stands > 0 }
         }
 
@@ -78,13 +172,14 @@ final class StationViewModel: ObservableObject {
 
     // MARK: - API
     func fetchStations() async {
+        let contractName = selectedContract?.name ?? "Amiens"
         isLoading = true
         errorMessage = nil
         do {
-            let stations = try await JCDecauxAPI.shared.fetchStations(contract: "Amiens")
+            let stations = try await JCDecauxAPI.shared.fetchStations(contract: contractName)
             allStations = stations.sorted { $0.name < $1.name }
             lastRefresh = Date()
-            userService.logEvent("stations_refreshed", params: ["count": stations.count])
+            userService.logEvent("stations_refreshed", params: ["count": stations.count, "city": contractName])
             checkAlertsAfterRefresh()
         } catch {
             errorMessage = error.localizedDescription
@@ -106,44 +201,38 @@ final class StationViewModel: ObservableObject {
 
     // MARK: - Favorites
     func toggleFavorite(for station: Station) {
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
-
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if appUser.favoriteIDs.contains(station.number) {
             appUser.favoriteIDs.remove(station.number)
         } else {
             appUser.favoriteIDs.insert(station.number)
-            userService.logEvent("station_favorited", params: ["station_id": station.number, "name": station.cleanName])
+            userService.logEvent("station_favorited", params: ["station_id": station.number])
         }
         Task { await userService.saveUser(appUser) }
     }
 
-    func isFavorite(_ station: Station) -> Bool {
-        appUser.favoriteIDs.contains(station.number)
-    }
+    func isFavorite(_ station: Station) -> Bool { appUser.favoriteIDs.contains(station.number) }
 
-    // MARK: - Availability Alerts
+    // MARK: - Alerts
     func toggleAlert(for station: Station) {
-        let notification = UINotificationFeedbackGenerator()
+        let generator = UINotificationFeedbackGenerator()
         if alertedStationIDs.contains(station.number) {
             alertedStationIDs.remove(station.number)
             notifications.cancelAlert(for: station.number)
-            notification.notificationOccurred(.warning)
+            generator.notificationOccurred(.warning)
         } else {
             Task { await notifications.requestPermission() }
             alertedStationIDs.insert(station.number)
             if station.mainStands.availabilities.bikes > 0 {
                 notifications.scheduleAvailabilityAlert(for: station)
             }
-            notification.notificationOccurred(.success)
+            generator.notificationOccurred(.success)
         }
         appUser.alertedStationIDs = alertedStationIDs
         Task { await userService.saveUser(appUser) }
     }
 
-    func hasAlert(_ station: Station) -> Bool {
-        alertedStationIDs.contains(station.number)
-    }
+    func hasAlert(_ station: Station) -> Bool { alertedStationIDs.contains(station.number) }
 
     private func checkAlertsAfterRefresh() {
         for station in allStations where alertedStationIDs.contains(station.number) {
@@ -162,16 +251,16 @@ final class StationViewModel: ObservableObject {
 
 // MARK: - Supporting Types
 enum AvailabilityFilter: String, CaseIterable {
-    case all = "Tous"
+    case all       = "Tous"
     case available = "Disponibles"
-    case electric = "Électriques"
+    case electric  = "Électriques"
     case hasStands = "Places libres"
 
     var icon: String {
         switch self {
-        case .all: return "bicycle"
+        case .all:       return "bicycle"
         case .available: return "checkmark.circle"
-        case .electric: return "bolt.fill"
+        case .electric:  return "bolt.fill"
         case .hasStands: return "p.square.fill"
         }
     }

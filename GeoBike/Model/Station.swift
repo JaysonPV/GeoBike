@@ -53,21 +53,57 @@ struct Station: Identifiable, Decodable, Equatable {
         }
     }
 
-    struct Position: Decodable, Equatable {
+    struct Position: Equatable, Decodable {
         let latitude: Double
         let longitude: Double
     }
 
-    struct MainStands: Decodable, Equatable {
+    struct MainStands: Equatable, Decodable {
         let capacity: Int
         let availabilities: Availabilities
+
+        private enum CodingKeys: String, CodingKey { case capacity, availabilities }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            capacity      = (try? c.decode(Int.self, forKey: .capacity)) ?? 0
+            availabilities = try c.decode(Availabilities.self, forKey: .availabilities)
+        }
     }
 
-    struct Availabilities: Decodable, Equatable {
+    struct Availabilities: Equatable, Decodable {
         let bikes: Int
         let stands: Int
         let mechanicalBikes: Int
         let electricalBikes: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case bikes, stands, mechanicalBikes, electricalBikes
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            bikes          = (try? c.decode(Int.self, forKey: .bikes)) ?? 0
+            stands         = (try? c.decode(Int.self, forKey: .stands)) ?? 0
+            mechanicalBikes  = (try? c.decode(Int.self, forKey: .mechanicalBikes)) ?? 0
+            electricalBikes  = (try? c.decode(Int.self, forKey: .electricalBikes)) ?? 0
+        }
+    }
+
+    // MARK: - Decodable (null-safe custom init)
+
+    private enum CodingKeys: String, CodingKey {
+        case number, name, address, status, position, mainStands
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        number       = try c.decode(Int.self, forKey: .number)
+        name         = try c.decode(String.self, forKey: .name)
+        address      = (try? c.decode(String.self, forKey: .address)) ?? ""
+        status       = (try? c.decode(String.self, forKey: .status)) ?? "CLOSED"
+        position     = try c.decode(Position.self, forKey: .position)
+        mainStands   = try c.decode(MainStands.self, forKey: .mainStands)
     }
 
     enum AvailabilityLevel {

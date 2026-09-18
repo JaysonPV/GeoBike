@@ -60,8 +60,8 @@ struct ContentView: View {
             }
         }
         .task {
-            await viewModel.fetchStations()
             viewModel.location.startUpdating()
+            await viewModel.setup()
             viewModel.startAutoRefresh(interval: 60)
         }
         .sheet(isPresented: $showOnboarding) {
