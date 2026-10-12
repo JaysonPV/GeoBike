@@ -68,6 +68,14 @@ struct ContentView: View {
             OnboardingView(viewModel: viewModel, isPresented: $showOnboarding)
                 .interactiveDismissDisabled()
         }
+        .alert("Ville indisponible", isPresented: Binding(
+            get: { viewModel.cityUnavailableMessage != nil },
+            set: { if !$0 { viewModel.cityUnavailableMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { viewModel.cityUnavailableMessage = nil }
+        } message: {
+            if let msg = viewModel.cityUnavailableMessage { Text(msg) }
+        }
         .onAppear {
             if !UserDefaults.standard.bool(forKey: "onboarding_done") {
                 showOnboarding = true

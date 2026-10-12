@@ -20,6 +20,7 @@ final class StationViewModel: ObservableObject {
     @Published var availableContracts: [Contract] = []
     @Published var selectedContract: Contract?
     @Published var isLoadingContracts = false
+    @Published var cityUnavailableMessage: String?
 
     // MARK: - Dependencies
     let location: LocationService
@@ -107,7 +108,7 @@ final class StationViewModel: ObservableObject {
                 UserDefaults.standard.set(prev.name, forKey: "selected_contract")
             }
             allStations = previousStations
-            errorMessage = "\(contract.displayName) ne dispose pas de stations actives pour le moment."
+            cityUnavailableMessage = "\(contract.displayName.capitalized) ne dispose pas de stations actives en ce moment. Retour sur \((previousContract?.displayName ?? "la ville précédente").capitalized)."
         }
     }
 
@@ -159,6 +160,10 @@ final class StationViewModel: ObservableObject {
 
     var favoriteStations: [Station] {
         allStations.filter { appUser.favoriteIDs.contains($0.number) }
+    }
+
+    var activeAlertsCount: Int {
+        alertedStationIDs.filter { id in allStations.contains { $0.number == id } }.count
     }
 
     var stats: AppStats {
@@ -240,6 +245,10 @@ final class StationViewModel: ObservableObject {
                 notifications.scheduleAvailabilityAlert(for: station)
             }
         }
+    }
+
+    func saveProfile() {
+        Task { await userService.saveUser(appUser) }
     }
 
     // MARK: - User

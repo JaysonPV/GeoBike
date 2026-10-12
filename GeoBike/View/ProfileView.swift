@@ -3,8 +3,12 @@ import SwiftUI
 struct ProfileView: View {
     @ObservedObject var viewModel: StationViewModel
     @State private var showCityPicker = false
+    @State private var showAvatarPicker = false
 
     private var stats: AppStats { viewModel.stats }
+
+    private var avatarSymbol: String { viewModel.appUser.avatarSymbol ?? "figure.outdoor.cycle" }
+    private var avatarColor: Color { resolveColor(viewModel.appUser.avatarColorName) }
 
     var body: some View {
         ScrollView {
@@ -12,19 +16,30 @@ struct ProfileView: View {
 
                 // Avatar
                 VStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 90, height: 90)
-                        Image(systemName: "figure.outdoor.cycle")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.white)
+                    Button { showAvatarPicker = true } label: {
+                        ZStack(alignment: .bottomTrailing) {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(colors: [avatarColor, avatarColor.opacity(0.6)],
+                                                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .frame(width: 90, height: 90)
+                                Image(systemName: avatarSymbol)
+                                    .font(.system(size: 38))
+                                    .foregroundStyle(.white)
+                            }
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.blue)
+                                .background(Color(.systemBackground), in: Circle())
+                                .offset(x: 4, y: 4)
+                        }
                     }
+                    .buttonStyle(.plain)
                     Text("Cycliste GeoBike")
                         .font(.title2)
                         .fontWeight(.bold)
                     if let contract = viewModel.selectedContract {
-                        Text(contract.displayName)
+                        Text(contract.displayName.capitalized)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -34,7 +49,7 @@ struct ProfileView: View {
                 // Stats
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     StatCard(value: "\(viewModel.appUser.favoriteIDs.count)", label: "Favoris", icon: "star.fill", color: .yellow)
-                    StatCard(value: "\(viewModel.appUser.alertedStationIDs.count)", label: "Alertes actives", icon: "bell.fill", color: .orange)
+                    StatCard(value: "\(viewModel.activeAlertsCount)", label: "Alertes actives", icon: "bell.fill", color: .orange)
                     StatCard(value: "\(stats.openStations)", label: "Stations ouvertes", icon: "checkmark.circle.fill", color: .green)
                     StatCard(value: "\(stats.totalBikes)", label: "Vélos dispo", icon: "bicycle", color: .blue)
                 }
@@ -147,6 +162,25 @@ struct ProfileView: View {
         .sheet(isPresented: $showCityPicker) {
             CityPickerView(viewModel: viewModel, isPresented: $showCityPicker)
         }
+        .sheet(isPresented: $showAvatarPicker) {
+            AvatarPickerView(
+                avatarSymbol: $viewModel.appUser.avatarSymbol,
+                avatarColorName: $viewModel.appUser.avatarColorName
+            )
+            .onDisappear { viewModel.saveProfile() }
+        }
+    }
+
+    private func resolveColor(_ name: String?) -> Color {
+        switch name {
+        case "green":  return .green
+        case "orange": return .orange
+        case "purple": return .purple
+        case "red":    return .red
+        case "teal":   return .teal
+        case "yellow": return .yellow
+        default:       return .blue
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -171,6 +205,112 @@ struct ProfileView: View {
             Text(value).foregroundStyle(.secondary).padding(.trailing, 16)
         }
         .padding(.vertical, 11)
+    }
+}
+
+// MARK: - Avatar Picker
+struct AvatarPickerView: View {
+    @Binding var avatarSymbol: String?
+    @Binding var avatarColorName: String?
+    @Environment(\.dismiss) private var dismiss
+
+    private let icons = [
+        "figure.outdoor.cycle", "bicycle", "figure.run", "figure.walk",
+        "bolt.fill", "leaf.fill", "map.fill", "star.fill",
+        "heart.fill", "trophy.fill", "flag.fill", "location.fill"
+    ]
+    private let colors: [(String, Color)] = [
+        ("blue", .blue), ("green", .green), ("orange", .orange),
+        ("purple", .purple), ("red", .red), ("teal", .teal)
+    ]
+
+    private var currentSymbol: String { avatarSymbol ?? "figure.outdoor.cycle" }
+    private var currentColor: Color {
+        colors.first { $0.0 == (avatarColorName ?? "blue") }?.1 ?? .blue
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 28) {
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(colors: [currentColor, currentColor.opacity(0.6)],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 110, height: 110)
+                        Image(systemName: currentSymbol)
+                            .font(.system(size: 48))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.top, 8)
+                    .animation(.spring(duration: 0.3), value: currentSymbol)
+                    .animation(.spring(duration: 0.3), value: avatarColorName)
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Couleur").font(.headline).padding(.horizontal)
+                        HStack(spacing: 14) {
+                            ForEach(colors, id: \.0) { name, color in
+                                Button {
+                                    avatarColorName = name
+                                } label: {
+                                    Circle()
+                                        .fill(color)
+                                        .frame(width: 42, height: 42)
+                                        .overlay {
+                                            if (avatarColorName ?? "blue") == name {
+                                                Image(systemName: "checkmark")
+                                                    .font(.caption.bold())
+                                                    .foregroundStyle(.white)
+                                            }
+                                        }
+                                        .shadow(color: color.opacity(0.4), radius: 4, y: 2)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Icône").font(.headline).padding(.horizontal)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 14) {
+                            ForEach(icons, id: \.self) { icon in
+                                Button {
+                                    avatarSymbol = icon
+                                } label: {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .fill(currentSymbol == icon
+                                                  ? currentColor.opacity(0.15)
+                                                  : Color(.secondarySystemBackground))
+                                            .frame(width: 68, height: 68)
+                                            .overlay {
+                                                if currentSymbol == icon {
+                                                    RoundedRectangle(cornerRadius: 14)
+                                                        .stroke(currentColor, lineWidth: 2)
+                                                }
+                                            }
+                                        Image(systemName: icon)
+                                            .font(.system(size: 26))
+                                            .foregroundStyle(currentSymbol == icon ? currentColor : .secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+            .navigationTitle("Mon avatar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Terminer") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }
 

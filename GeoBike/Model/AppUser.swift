@@ -8,6 +8,8 @@ struct AppUser: Codable, Equatable {
     var alertedStationIDs: Set<Int>
     var totalRides: Int
     var joinDate: Date
+    var avatarSymbol: String?
+    var avatarColorName: String?
 
     init(uid: String) {
         self.uid = uid
