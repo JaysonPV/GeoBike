@@ -37,9 +37,8 @@ final class StationViewModel: ObservableObject {
 
     // MARK: - Setup (called once at launch)
     func setup() async {
-        // Load contracts and stations concurrently
         async let contractLoad: () = loadContractsAndAutoDetect()
-        async let userLoad: () = { @MainActor in }() // user already loading in init
+        async let userLoad: () = { @MainActor in }()
         _ = await (contractLoad, userLoad)
         await fetchStations()
     }
@@ -53,22 +52,22 @@ final class StationViewModel: ObservableObject {
             #if DEBUG
             print("[ViewModel] loadContractsAndAutoDetect error: \(error)")
             #endif
-            availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
+            availableContracts = [Contract(name: "amiens", commercialName: "Vélam", countryCode: "FR", status: "Active", cities: nil)]
         }
 
-        // Restore saved city
+        // Restore city the user previously chose manually
         if let savedName = UserDefaults.standard.string(forKey: "selected_contract"),
-           let saved = availableContracts.first(where: { $0.name == savedName }) {
+           let saved = availableContracts.first(where: { $0.name.localizedCaseInsensitiveCompare(savedName) == .orderedSame }) {
             selectedContract = saved
             return
         }
 
-        // Try GPS auto-detect
+        // Auto-detect from GPS
         await autoDetectContract()
 
-        // Fallback to Amiens
+        // Last resort: pick the first available contract
         if selectedContract == nil {
-            selectedContract = availableContracts.first(where: { $0.name == "Amiens" })
+            selectedContract = availableContracts.first
         }
     }
 
@@ -80,16 +79,11 @@ final class StationViewModel: ObservableObject {
             let contracts = try await JCDecauxAPI.shared.fetchContracts()
             if !contracts.isEmpty {
                 availableContracts = contracts.sorted { $0.displayName < $1.displayName }
-            } else if availableContracts.isEmpty {
-                availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
             }
         } catch {
             #if DEBUG
             print("[ViewModel] refreshContracts error: \(error)")
             #endif
-            if availableContracts.isEmpty {
-                availableContracts = [Contract(name: "Amiens", commercialName: "Vélam", countryCode: "FR", status: "Active")]
-            }
         }
     }
 
@@ -102,7 +96,6 @@ final class StationViewModel: ObservableObject {
         await fetchStations()
 
         if allStations.isEmpty && !previousStations.isEmpty {
-            // No stations returned — revert to the previous city
             selectedContract = previousContract
             if let prev = previousContract {
                 UserDefaults.standard.set(prev.name, forKey: "selected_contract")
@@ -112,26 +105,46 @@ final class StationViewModel: ObservableObject {
         }
     }
 
+    // Finds the nearest contract by comparing city coordinates from the API response.
+    // Falls back to reverse geocoding if the API returned no coordinates.
     private func autoDetectContract() async {
-        guard let location = location.userLocation else { return }
+        guard let userLocation = location.userLocation else { return }
+
+        let nearest = availableContracts
+            .compactMap { contract -> (Contract, Double)? in
+                guard let loc = contract.mainLocation else { return nil }
+                return (contract, userLocation.distance(from: loc))
+            }
+            .min { $0.1 < $1.1 }
+            .map { $0.0 }
+
+        if let nearest {
+            selectedContract = nearest
+            return
+        }
+
+        // Fallback: reverse geocoding when contracts carry no coordinates
         let geocoder = CLGeocoder()
-        guard let placemarks = try? await geocoder.reverseGeocodeLocation(location),
+        guard let placemarks = try? await geocoder.reverseGeocodeLocation(userLocation),
               let city = placemarks.first?.locality else { return }
 
-        let match = availableContracts.first {
+        selectedContract = availableContracts.first {
             $0.name.localizedCaseInsensitiveContains(city) ||
             city.localizedCaseInsensitiveContains($0.name)
         }
-        if let match { selectedContract = match }
+    }
+
+    // Re-runs GPS detection after onboarding grants location permission.
+    // No-op if the user has already manually chosen a city.
+    func refreshDetectionIfNeeded() async {
+        guard UserDefaults.standard.string(forKey: "selected_contract") == nil else { return }
+        await autoDetectContract()
+        if selectedContract != nil { await fetchStations() }
     }
 
     // MARK: - Filtered Stations
     var filteredStations: [Station] {
         var stations = allStations
-
-        if !appUser.favoriteIDs.isEmpty && selectedFilter == .all {
-            // favorites shown in dedicated tab — no extra filter here
-        }
 
         switch selectedFilter {
         case .all: break
@@ -162,6 +175,10 @@ final class StationViewModel: ObservableObject {
         allStations.filter { appUser.favoriteIDs.contains($0.number) }
     }
 
+    var alertedStations: [Station] {
+        allStations.filter { alertedStationIDs.contains($0.number) }
+    }
+
     var activeAlertsCount: Int {
         alertedStationIDs.filter { id in allStations.contains { $0.number == id } }.count
     }
@@ -177,7 +194,7 @@ final class StationViewModel: ObservableObject {
 
     // MARK: - API
     func fetchStations() async {
-        let contractName = selectedContract?.name ?? "Amiens"
+        guard let contractName = selectedContract?.name else { return }
         isLoading = true
         errorMessage = nil
         do {

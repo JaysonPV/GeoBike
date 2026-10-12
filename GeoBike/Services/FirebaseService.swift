@@ -79,6 +79,10 @@ final class FirebaseUserService: UserServiceProtocol {
                let user = try? Firestore.Decoder().decode(AppUser.self, from: data) {
                 return user
             }
+            // No document found — new or reset user. Clear local tutorial/onboarding
+            // flags so the full first-run flow shows again.
+            UserDefaults.standard.removeObject(forKey: "onboarding_done")
+            UserDefaults.standard.removeObject(forKey: "tutorial_done")
             return AppUser(uid: uid)
         } catch {
             print("Firebase load error:", error)

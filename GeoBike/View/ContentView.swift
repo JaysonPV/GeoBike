@@ -4,6 +4,8 @@ struct ContentView: View {
     @StateObject private var viewModel = StationViewModel()
     @State private var selectedTab: AppTab = .nearby
     @State private var showOnboarding = false
+    @State private var showTutorial = false
+    @State private var tutorialStep = 0
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -76,9 +78,42 @@ struct ContentView: View {
         } message: {
             if let msg = viewModel.cityUnavailableMessage { Text(msg) }
         }
+        .onChange(of: showOnboarding) { _, isShowing in
+            guard !isShowing else { return }
+            // Re-detect nearest city now that location permission may have been granted
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                await viewModel.refreshDetectionIfNeeded()
+            }
+            // Show tutorial if not yet seen
+            if !UserDefaults.standard.bool(forKey: "tutorial_done") {
+                Task {
+                    try? await Task.sleep(for: .seconds(0.6))
+                    withAnimation(.spring(duration: 0.5)) { showTutorial = true }
+                }
+            }
+        }
         .onAppear {
             if !UserDefaults.standard.bool(forKey: "onboarding_done") {
                 showOnboarding = true
+            } else if !UserDefaults.standard.bool(forKey: "tutorial_done") {
+                Task {
+                    try? await Task.sleep(for: .seconds(0.8))
+                    withAnimation(.spring(duration: 0.5)) { showTutorial = true }
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showTutorial {
+                TutorialCardView(step: $tutorialStep, selectedTab: $selectedTab) {
+                    UserDefaults.standard.set(true, forKey: "tutorial_done")
+                    withAnimation(.spring(duration: 0.4)) {
+                        showTutorial = false
+                        tutorialStep = 0
+                    }
+                }
+                .padding(.bottom, 88)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
     }
@@ -183,5 +218,116 @@ struct StationListView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+    }
+}
+
+// MARK: - Tutorial Card
+private struct TutorialCardView: View {
+    @Binding var step: Int
+    @Binding var selectedTab: AppTab
+    let onFinish: () -> Void
+
+    private struct TutorialStep {
+        let tab: AppTab
+        let icon: String
+        let color: Color
+        let title: String
+        let hint: String
+    }
+
+    private static let steps: [TutorialStep] = [
+        TutorialStep(tab: .map,       icon: "map.fill",           color: .blue,
+                     title: "Explore la carte",
+                     hint: "Les points colorés indiquent la disponibilité. Appuie sur un pour voir les détails."),
+        TutorialStep(tab: .nearby,    icon: "location.fill",      color: .teal,
+                     title: "Stations à proximité",
+                     hint: "Tes stations triées par distance. Active la localisation pour un résultat précis."),
+        TutorialStep(tab: .list,      icon: "list.bullet",        color: .indigo,
+                     title: "Ajoute un favori",
+                     hint: "Appuie sur l'étoile d'une station pour la sauvegarder et activer une alerte."),
+        TutorialStep(tab: .favorites, icon: "star.fill",          color: .orange,
+                     title: "Tes favoris",
+                     hint: "Retrouve ici toutes tes stations préférées, synchronisées dans le cloud."),
+        TutorialStep(tab: .profile,   icon: "person.circle.fill", color: .purple,
+                     title: "Ton profil",
+                     hint: "Change de ville, personnalise ton avatar et gère tes alertes de disponibilité.")
+    ]
+
+    private var current: TutorialStep { Self.steps[step] }
+
+    var body: some View {
+        let c = current
+        VStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(.white.opacity(0.22))
+                        .frame(width: 46, height: 46)
+                    Image(systemName: c.icon)
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(c.title)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Text(c.hint)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.88))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                HStack(spacing: 5) {
+                    ForEach(0..<Self.steps.count, id: \.self) { i in
+                        Capsule()
+                            .fill(i == step ? Color.white : Color.white.opacity(0.3))
+                            .frame(width: i == step ? 18 : 6, height: 6)
+                            .animation(.spring(duration: 0.3), value: step)
+                    }
+                }
+                Spacer()
+                HStack(spacing: 12) {
+                    if step < Self.steps.count - 1 {
+                        Button("Passer") { onFinish() }
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    Button {
+                        if step < Self.steps.count - 1 {
+                            withAnimation(.spring(duration: 0.35)) { step += 1 }
+                        } else {
+                            onFinish()
+                        }
+                    } label: {
+                        Text(step == Self.steps.count - 1 ? "C'est parti !" : "Suivant →")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(c.color)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(.white, in: Capsule())
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                colors: [c.color, c.color.opacity(0.72)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 22)
+        )
+        .shadow(color: c.color.opacity(0.45), radius: 20, y: 6)
+        .padding(.horizontal, 16)
+        .onChange(of: step) { _, _ in
+            withAnimation(.spring(duration: 0.3)) {
+                selectedTab = Self.steps[step].tab
+            }
+        }
+        .onAppear { selectedTab = c.tab }
     }
 }

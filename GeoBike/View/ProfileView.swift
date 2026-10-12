@@ -429,7 +429,7 @@ struct NotificationSettingsView: View {
     @ObservedObject var viewModel: StationViewModel
 
     var body: some View {
-        List(viewModel.favoriteStations) { station in
+        List(viewModel.alertedStations) { station in
             HStack {
                 VStack(alignment: .leading) {
                     Text(station.cleanName).font(.subheadline)
@@ -446,9 +446,9 @@ struct NotificationSettingsView: View {
         .navigationTitle("Alertes")
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
-            if viewModel.favoriteStations.isEmpty {
-                ContentUnavailableView("Aucun favori", systemImage: "star.slash",
-                    description: Text("Ajoutez des stations en favoris pour configurer des alertes."))
+            if viewModel.alertedStations.isEmpty {
+                ContentUnavailableView("Aucune alerte active", systemImage: "bell.slash",
+                    description: Text("Activez une alerte sur une station depuis la liste ou la carte."))
             }
         }
     }
