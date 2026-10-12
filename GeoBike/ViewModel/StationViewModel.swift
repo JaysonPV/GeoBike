@@ -48,6 +48,7 @@ final class StationViewModel: ObservableObject {
         do {
             let contracts = try await JCDecauxAPI.shared.fetchContracts()
             availableContracts = contracts.sorted { $0.displayName < $1.displayName }
+            Task { await backgroundFilterEmptyContracts() }
         } catch {
             #if DEBUG
             print("[ViewModel] loadContractsAndAutoDetect error: \(error)")
@@ -79,6 +80,7 @@ final class StationViewModel: ObservableObject {
             let contracts = try await JCDecauxAPI.shared.fetchContracts()
             if !contracts.isEmpty {
                 availableContracts = contracts.sorted { $0.displayName < $1.displayName }
+                Task { await backgroundFilterEmptyContracts() }
             }
         } catch {
             #if DEBUG
@@ -102,6 +104,11 @@ final class StationViewModel: ObservableObject {
             }
             allStations = previousStations
             cityUnavailableMessage = "\(contract.displayName.capitalized) ne dispose pas de stations actives en ce moment. Retour sur \((previousContract?.displayName ?? "la ville précédente").capitalized)."
+            // Remember immediately so it won't reappear in the picker
+            var unavailable = unavailableContractNames
+            unavailable.insert(contract.name)
+            unavailableContractNames = unavailable
+            availableContracts = availableContracts.filter { $0.name != contract.name }
         }
     }
 
@@ -140,6 +147,64 @@ final class StationViewModel: ObservableObject {
         guard UserDefaults.standard.string(forKey: "selected_contract") == nil else { return }
         await autoDetectContract()
         if selectedContract != nil { await fetchStations() }
+    }
+
+    // MARK: - Contract filtering (hide cities with no stations)
+
+    private var unavailableContractNames: Set<String> {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: "unavailable_contracts_v1"),
+                  let set = try? JSONDecoder().decode(Set<String>.self, from: data) else { return [] }
+            return set
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: "unavailable_contracts_v1")
+            }
+        }
+    }
+
+    private func applyContractFilter() {
+        let unavailable = unavailableContractNames
+        guard !unavailable.isEmpty else { return }
+        availableContracts = availableContracts.filter { !unavailable.contains($0.name) }
+    }
+
+    // Checks every contract for stations in batches of 5 concurrently. Result cached 24h.
+    private func backgroundFilterEmptyContracts() async {
+        applyContractFilter()
+
+        if let date = UserDefaults.standard.object(forKey: "unavailable_contracts_date") as? Date,
+           Date().timeIntervalSince(date) < 86400 { return }
+
+        let contracts = availableContracts
+        guard !contracts.isEmpty else { return }
+        var emptyNames = Set<String>()
+
+        for batchStart in stride(from: 0, to: contracts.count, by: 5) {
+            let batch = Array(contracts[batchStart..<min(batchStart + 5, contracts.count)])
+            await withTaskGroup(of: (String, Bool).self) { group in
+                for contract in batch {
+                    group.addTask {
+                        let stations = try? await JCDecauxAPI.shared.fetchStations(contract: contract.name)
+                        return (contract.name, stations?.isEmpty ?? true)
+                    }
+                }
+                for await (name, isEmpty) in group {
+                    if isEmpty { emptyNames.insert(name) }
+                }
+            }
+        }
+
+        UserDefaults.standard.set(Date(), forKey: "unavailable_contracts_date")
+        unavailableContractNames = emptyNames
+
+        let selected = selectedContract?.name
+        if !emptyNames.isEmpty {
+            availableContracts = availableContracts
+                .filter { !emptyNames.contains($0.name) || $0.name == selected }
+                .sorted { $0.displayName < $1.displayName }
+        }
     }
 
     // MARK: - Filtered Stations
