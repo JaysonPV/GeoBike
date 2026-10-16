@@ -56,6 +56,13 @@
 			);
 			target = EC8BB87D3082157D00873105 /* GeoBikeWidgetExtension */;
 		};
+		EC8BB8A830822BBE00873105 /* Exceptions for "GeoBike" folder in "GeoBike" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = ECA7F271305BD12D00F071B1 /* GeoBike */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +76,9 @@
 		};
 		ECA7F274305BD12D00F071B1 /* GeoBike */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EC8BB8A830822BBE00873105 /* Exceptions for "GeoBike" folder in "GeoBike" target */,
+			);
 			path = GeoBike;
 			sourceTree = "<group>";
 		};
@@ -468,7 +478,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoBike/Info.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GeoBike utilise votre position pour trouver les stations Vélam les plus proches.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -513,7 +525,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoBike/Info.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "GeoBike utilise votre position pour trouver les stations Vélam les plus proches.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
