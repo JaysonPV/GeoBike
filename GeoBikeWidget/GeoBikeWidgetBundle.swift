@@ -12,5 +12,6 @@ import SwiftUI
 struct GeoBikeWidgetBundle: WidgetBundle {
     var body: some Widget {
         GeoBikeWidget()
+        GeoBikeActivityWidget()
     }
 }

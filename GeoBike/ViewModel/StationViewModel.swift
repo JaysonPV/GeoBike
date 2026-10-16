@@ -3,6 +3,7 @@ import CoreLocation
 import UIKit
 import Combine
 import WidgetKit
+import ActivityKit
 
 @MainActor
 final class StationViewModel: ObservableObject {
@@ -16,6 +17,7 @@ final class StationViewModel: ObservableObject {
     @Published var appUser: AppUser = AppUser(uid: "local")
     @Published var lastRefresh: Date?
     @Published var alertedStationIDs: Set<Int> = []
+    @Published var isTrackingStation = false
 
     // Contract / city
     @Published var availableContracts: [Contract] = []
@@ -28,6 +30,8 @@ final class StationViewModel: ObservableObject {
     private let userService: UserServiceProtocol
     private let notifications = NotificationService.shared
     private var refreshTask: Task<Void, Never>?
+    private var liveActivity: Activity<BikeActivityAttributes>?
+    private var trackedStationID: Int?
 
     // MARK: - Init
     init() {
@@ -270,6 +274,10 @@ final class StationViewModel: ObservableObject {
             userService.logEvent("stations_refreshed", params: ["count": stations.count, "city": contractName])
             checkAlertsAfterRefresh()
             updateWidget(contractName: contractName)
+            if let id = trackedStationID,
+               let tracked = allStations.first(where: { $0.number == id }) {
+                await updateLiveActivity(for: tracked)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -314,6 +322,69 @@ final class StationViewModel: ObservableObject {
     }
 
     func stopAutoRefresh() { refreshTask?.cancel() }
+
+    // MARK: - Live Activity
+
+    func isTracking(_ station: Station) -> Bool {
+        trackedStationID == station.number && isTrackingStation
+    }
+
+    func startLiveActivity(for station: Station) async {
+        // End any existing live activity first
+        if let existing = liveActivity {
+            await existing.end(nil, dismissalPolicy: .immediate)
+            liveActivity = nil
+            isTrackingStation = false
+            trackedStationID = nil
+        }
+
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        let attributes = BikeActivityAttributes(stationName: station.cleanName, stationID: station.number)
+        let contentState = BikeActivityAttributes.ContentState(
+            bikes: station.mainStands.availabilities.bikes,
+            electricBikes: station.mainStands.availabilities.electricalBikes,
+            stands: station.mainStands.availabilities.stands,
+            isOpen: station.isOpen
+        )
+        do {
+            liveActivity = try Activity.request(
+                attributes: attributes,
+                content: .init(state: contentState, staleDate: .now.addingTimeInterval(600))
+            )
+            trackedStationID = station.number
+            isTrackingStation = true
+        } catch {
+            #if DEBUG
+            print("[LiveActivity] start error: \(error)")
+            #endif
+        }
+    }
+
+    func endLiveActivity() {
+        guard let activity = liveActivity else { return }
+        Task { await activity.end(nil, dismissalPolicy: .default) }
+        liveActivity = nil
+        isTrackingStation = false
+        trackedStationID = nil
+    }
+
+    private func updateLiveActivity(for station: Station) async {
+        guard let activity = liveActivity,
+              activity.activityState == .active else {
+            liveActivity = nil
+            isTrackingStation = false
+            trackedStationID = nil
+            return
+        }
+        let newState = BikeActivityAttributes.ContentState(
+            bikes: station.mainStands.availabilities.bikes,
+            electricBikes: station.mainStands.availabilities.electricalBikes,
+            stands: station.mainStands.availabilities.stands,
+            isOpen: station.isOpen
+        )
+        await activity.update(.init(state: newState, staleDate: .now.addingTimeInterval(600)))
+    }
 
     // MARK: - Favorites
     func toggleFavorite(for station: Station) {

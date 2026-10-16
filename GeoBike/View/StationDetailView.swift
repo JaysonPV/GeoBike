@@ -8,6 +8,7 @@ struct StationDetailView: View {
 
     private var isFavorite: Bool { viewModel.isFavorite(station) }
     private var hasAlert: Bool { viewModel.hasAlert(station) }
+    private var isTracking: Bool { viewModel.isTracking(station) }
 
     var body: some View {
         NavigationStack {
@@ -100,6 +101,28 @@ struct StationDetailView: View {
                                 .padding(.vertical, 14)
                                 .background(Color.blue, in: RoundedRectangle(cornerRadius: 14))
                                 .foregroundStyle(.white)
+                        }
+
+                        // Live Activity button
+                        Button {
+                            if isTracking {
+                                viewModel.endLiveActivity()
+                            } else {
+                                Task { await viewModel.startLiveActivity(for: station) }
+                            }
+                        } label: {
+                            Label(
+                                isTracking ? "Arrêter le suivi" : "Suivre en direct",
+                                systemImage: isTracking ? "livephoto.slash" : "livephoto"
+                            )
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                isTracking ? Color(.systemGray5) : Color.green,
+                                in: RoundedRectangle(cornerRadius: 14)
+                            )
+                            .foregroundStyle(isTracking ? Color(.secondaryLabel) : .white)
                         }
 
                         HStack(spacing: 12) {
