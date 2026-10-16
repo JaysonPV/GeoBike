@@ -55,6 +55,9 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal)
 
+                // Carbon impact
+                carbonImpactSection
+
                 // Current city banner
                 if let contract = viewModel.selectedContract {
                     Button { showCityPicker = true } label: {
@@ -169,6 +172,65 @@ struct ProfileView: View {
             )
             .onDisappear { viewModel.saveProfile() }
         }
+    }
+
+    // MARK: - Carbon impact section
+
+    private var carbonImpactSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Mon impact carbone")
+
+            VStack(spacing: 16) {
+                HStack(spacing: 16) {
+                    Image(systemName: "leaf.circle.fill")
+                        .font(.system(size: 52))
+                        .foregroundStyle(.green)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.co2SavedLabel)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(.green)
+                            .contentTransition(.numericText())
+                        Text("de CO₂ économisés vs. voiture")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                Divider()
+
+                HStack {
+                    impactCell(icon: "bicycle", value: viewModel.totalDistanceLabel, label: "Parcourus")
+                    Divider().frame(height: 36)
+                    impactCell(icon: "flag.checkered", value: "\(viewModel.appUser.totalRides)", label: "Trajets")
+                    Divider().frame(height: 36)
+                    impactCell(icon: "leaf.fill", value: viewModel.treeMonthsLabel, label: "≈ arbre*")
+                }
+
+                if viewModel.appUser.totalRides == 0 {
+                    Text("Enregistrez un trajet depuis la fiche d'une station pour suivre votre impact.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(16)
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+    }
+
+    private func impactCell(icon: String, value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).foregroundStyle(.green).font(.body)
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .monospacedDigit()
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func resolveColor(_ name: String?) -> Color {

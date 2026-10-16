@@ -6,6 +6,9 @@ struct StationDetailView: View {
     @ObservedObject var viewModel: StationViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showRideAlert = false
+    @State private var rideAlertMessage = ""
+
     private var isFavorite: Bool { viewModel.isFavorite(station) }
     private var hasAlert: Bool { viewModel.hasAlert(station) }
     private var isTracking: Bool { viewModel.isTracking(station) }
@@ -125,6 +128,24 @@ struct StationDetailView: View {
                             .foregroundStyle(isTracking ? Color(.secondaryLabel) : .white)
                         }
 
+                        // Log ride button
+                        Button {
+                            let result = viewModel.logRide(to: station)
+                            let dist = result.distanceMeters < 1000
+                                ? "\(Int(result.distanceMeters)) m"
+                                : String(format: "%.1f km", result.distanceMeters / 1000)
+                            rideAlertMessage = "~\(dist) · \(Int(result.co2Grams)) g de CO₂ économisés vs. voiture"
+                            showRideAlert = true
+                        } label: {
+                            Label("Trajet effectué", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                                .foregroundStyle(.green)
+                        }
+
                         HStack(spacing: 12) {
                             // Favorite button
                             Button {
@@ -165,6 +186,11 @@ struct StationDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Fermer") { dismiss() }
                 }
+            }
+            .alert("Trajet enregistré !", isPresented: $showRideAlert) {
+                Button("Super !") {}
+            } message: {
+                Text(rideAlertMessage)
             }
         }
     }

@@ -434,6 +434,51 @@ final class StationViewModel: ObservableObject {
         Task { await userService.saveUser(appUser) }
     }
 
+    // MARK: - Carbon Footprint
+    // Average car: 118 g CO₂/km, bike: ~3 g/km, net saving: 115 g/km (ADEME 2023).
+    private static let co2GramsPerKm: Double = 115
+
+    var co2SavedKg: Double {
+        (appUser.totalDistanceMeters / 1000) * Self.co2GramsPerKm / 1000
+    }
+
+    var co2SavedLabel: String {
+        let kg = co2SavedKg
+        if kg < 1 { return String(format: "%.0f g", kg * 1000) }
+        return String(format: "%.2f kg", kg)
+    }
+
+    var totalDistanceLabel: String {
+        let km = appUser.totalDistanceMeters / 1000
+        if km < 1 { return "\(Int(appUser.totalDistanceMeters)) m" }
+        return String(format: "%.1f km", km)
+    }
+
+    // 1 tree absorbs ~22 kg CO₂/year → 1.83 kg/month.
+    var treeMonthsLabel: String {
+        let months = co2SavedKg / (22.0 / 12.0)
+        if months < 1 { return String(format: "%.0f j", max(months * 30, 1)) }
+        return String(format: "%.1f m", months)
+    }
+
+    // Returns the estimated distance and CO₂ saved for display in the confirmation.
+    @discardableResult
+    func logRide(to station: Station) -> (distanceMeters: Double, co2Grams: Double) {
+        let distanceM: Double
+        if let loc = location.userLocation {
+            let raw = station.distance(from: loc)
+            // If the user is already at the station (< 100 m), default to 1.5 km.
+            distanceM = raw > 100 ? raw : 1500
+        } else {
+            distanceM = 1500
+        }
+        appUser.totalRides += 1
+        appUser.totalDistanceMeters += distanceM
+        Task { await userService.saveUser(appUser) }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        return (distanceM, distanceM / 1000 * Self.co2GramsPerKm)
+    }
+
     // MARK: - User
     private func loadUser() async {
         appUser = await userService.loadUser()
