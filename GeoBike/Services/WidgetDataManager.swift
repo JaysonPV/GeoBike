@@ -5,7 +5,8 @@ import Foundation
 struct WidgetStation: Codable, Identifiable {
     let id: Int
     let cleanName: String
-    let bikes: Int
+    let bikes: Int           // total (mechanical + electric) — used for availability color
+    let mechanicalBikes: Int // displayed under the bicycle icon
     let electricBikes: Int
     let stands: Int
     let isOpen: Bool
@@ -27,7 +28,7 @@ final class WidgetDataManager {
     private init() {}
 
     static let appGroupID = "group.map.GeoBike"
-    private let dataKey   = "geobike_widget_data_v1"
+    private let dataKey   = "geobike_widget_data_v2"
 
     private var defaults: UserDefaults? {
         UserDefaults(suiteName: Self.appGroupID)

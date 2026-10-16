@@ -40,9 +40,9 @@ struct StationTimelineProvider: TimelineProvider {
     }
 
     private static let samples: [WidgetStation] = [
-        WidgetStation(id: 1, cleanName: "Gare Saint-Roch",  bikes: 5, electricBikes: 2, stands: 8,  isOpen: true,  distanceMeters: 250,  latitude: 49.89, longitude: 2.30),
-        WidgetStation(id: 2, cleanName: "Place Gambetta",   bikes: 2, electricBikes: 0, stands: 12, isOpen: true,  distanceMeters: 480,  latitude: 49.90, longitude: 2.30),
-        WidgetStation(id: 3, cleanName: "Citadelle",        bikes: 0, electricBikes: 0, stands: 15, isOpen: false, distanceMeters: 820,  latitude: 49.91, longitude: 2.29),
+        WidgetStation(id: 1, cleanName: "Gare Saint-Roch",  bikes: 5, mechanicalBikes: 3, electricBikes: 2, stands: 8,  isOpen: true,  distanceMeters: 250,  latitude: 49.89, longitude: 2.30),
+        WidgetStation(id: 2, cleanName: "Place Gambetta",   bikes: 2, mechanicalBikes: 2, electricBikes: 0, stands: 12, isOpen: true,  distanceMeters: 480,  latitude: 49.90, longitude: 2.30),
+        WidgetStation(id: 3, cleanName: "Citadelle",        bikes: 0, mechanicalBikes: 0, electricBikes: 0, stands: 15, isOpen: false, distanceMeters: 820,  latitude: 49.91, longitude: 2.29),
     ]
 }
 
@@ -94,7 +94,7 @@ private struct SmallWidgetView: View {
                     HStack(spacing: 3) {
                         Image(systemName: "bicycle")
                             .font(.caption2)
-                        Text("\(station.bikes)")
+                        Text("\(station.mechanicalBikes)")
                             .font(.title3.bold())
                             .foregroundStyle(station.availabilityColor)
                     }
@@ -205,7 +205,7 @@ private struct StationRowView: View {
                 Image(systemName: "bicycle")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                Text("\(station.bikes)")
+                Text("\(station.mechanicalBikes)")
                     .font(.caption.bold())
                     .foregroundStyle(station.availabilityColor)
                     .frame(width: 22, alignment: .trailing)

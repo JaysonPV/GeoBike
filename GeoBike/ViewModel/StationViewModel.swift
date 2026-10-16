@@ -298,6 +298,7 @@ final class StationViewModel: ObservableObject {
                 id: s.number,
                 cleanName: s.cleanName,
                 bikes: s.mainStands.availabilities.bikes,
+                mechanicalBikes: s.mainStands.availabilities.mechanicalBikes,
                 electricBikes: s.mainStands.availabilities.electricalBikes,
                 stands: s.mainStands.availabilities.stands,
                 isOpen: s.isOpen,
@@ -342,7 +343,7 @@ final class StationViewModel: ObservableObject {
 
         let attributes = BikeActivityAttributes(stationName: station.cleanName, stationID: station.number)
         let contentState = BikeActivityAttributes.ContentState(
-            bikes: station.mainStands.availabilities.bikes,
+            mechanicalBikes: station.mainStands.availabilities.mechanicalBikes,
             electricBikes: station.mainStands.availabilities.electricalBikes,
             stands: station.mainStands.availabilities.stands,
             isOpen: station.isOpen
@@ -378,7 +379,7 @@ final class StationViewModel: ObservableObject {
             return
         }
         let newState = BikeActivityAttributes.ContentState(
-            bikes: station.mainStands.availabilities.bikes,
+            mechanicalBikes: station.mainStands.availabilities.mechanicalBikes,
             electricBikes: station.mainStands.availabilities.electricalBikes,
             stands: station.mainStands.availabilities.stands,
             isOpen: station.isOpen

@@ -25,7 +25,7 @@ struct GeoBikeActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(context.state.bikes > 0 ? Color.green : Color.red)
+                            .fill(hasBikes(context) ? Color.green : Color.red)
                             .frame(width: 8, height: 8)
                         Text(context.state.isOpen ? "Ouvert" : "Fermé")
                             .font(.caption2)
@@ -34,8 +34,8 @@ struct GeoBikeActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 20) {
-                        Label("\(context.state.bikes)", systemImage: "bicycle")
-                            .foregroundStyle(context.state.bikes > 0 ? .green : .secondary)
+                        Label("\(context.state.mechanicalBikes)", systemImage: "bicycle")
+                            .foregroundStyle(context.state.mechanicalBikes > 0 ? .green : .secondary)
                         Label("\(context.state.electricBikes)", systemImage: "bolt.fill")
                             .foregroundStyle(.blue)
                         Label("\(context.state.stands)", systemImage: "parkingsign")
@@ -49,19 +49,25 @@ struct GeoBikeActivityWidget: Widget {
                 Image(systemName: "bicycle")
                     .foregroundStyle(.blue)
             } compactTrailing: {
-                Text("\(context.state.bikes)")
+                // Show total bikes (mechanical + electric) for at-a-glance availability
+                let total = context.state.mechanicalBikes + context.state.electricBikes
+                Text("\(total)")
                     .monospacedDigit()
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(context.state.bikes > 0 ? .green : .red)
+                    .foregroundStyle(total > 0 ? .green : .red)
             } minimal: {
                 Image(systemName: "bicycle")
-                    .foregroundStyle(context.state.bikes > 0 ? .green : .red)
+                    .foregroundStyle(hasBikes(context) ? .green : .red)
             }
             .widgetURL(URL(string: "geobike://nearby"))
             .keylineTint(.blue)
         }
     }
+}
+
+private func hasBikes(_ context: ActivityViewContext<BikeActivityAttributes>) -> Bool {
+    context.state.mechanicalBikes + context.state.electricBikes > 0
 }
 
 // MARK: - Lock Screen banner
@@ -82,7 +88,7 @@ private struct LockScreenLiveActivityView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 14) {
-                    bikeCount(count: context.state.bikes, icon: "bicycle", color: .white)
+                    bikeCount(count: context.state.mechanicalBikes, icon: "bicycle", color: .white)
                     bikeCount(count: context.state.electricBikes, icon: "bolt.fill", color: .yellow)
                     bikeCount(count: context.state.stands, icon: "parkingsign",
                               color: context.state.stands > 0 ? .white : Color.red.opacity(0.8))
@@ -91,11 +97,12 @@ private struct LockScreenLiveActivityView: View {
 
             Spacer()
 
+            let totalBikes = context.state.mechanicalBikes + context.state.electricBikes
             VStack(spacing: 4) {
                 Circle()
-                    .fill(context.state.bikes > 0 ? Color.green : Color.red)
+                    .fill(totalBikes > 0 ? Color.green : Color.red)
                     .frame(width: 14, height: 14)
-                Text(context.state.bikes > 0 ? "Dispo" : "Vide")
+                Text(totalBikes > 0 ? "Dispo" : "Vide")
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.8))
             }
