@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import UIKit
 import Combine
+import WidgetKit
 
 @MainActor
 final class StationViewModel: ObservableObject {
@@ -268,10 +269,38 @@ final class StationViewModel: ObservableObject {
             lastRefresh = Date()
             userService.logEvent("stations_refreshed", params: ["count": stations.count, "city": contractName])
             checkAlertsAfterRefresh()
+            updateWidget(contractName: contractName)
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    // Writes the nearest open stations to the shared App Group so the widget can read them.
+    private func updateWidget(contractName: String) {
+        let userLoc = location.userLocation
+        let sorted: [Station]
+        if let loc = userLoc {
+            sorted = allStations.filter(\.isOpen).sorted { $0.distance(from: loc) < $1.distance(from: loc) }
+        } else {
+            sorted = allStations.filter(\.isOpen)
+        }
+        let widgetStations = sorted.prefix(5).map { s in
+            WidgetStation(
+                id: s.number,
+                cleanName: s.cleanName,
+                bikes: s.mainStands.availabilities.bikes,
+                electricBikes: s.mainStands.availabilities.electricalBikes,
+                stands: s.mainStands.availabilities.stands,
+                isOpen: s.isOpen,
+                distanceMeters: userLoc.map { s.distance(from: $0) },
+                latitude: s.position.latitude,
+                longitude: s.position.longitude
+            )
+        }
+        let label = selectedContract?.commercialName ?? selectedContract?.name ?? contractName
+        WidgetDataManager.shared.save(stations: Array(widgetStations), contractLabel: label)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func startAutoRefresh(interval: TimeInterval = 60) {

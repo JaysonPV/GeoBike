@@ -103,6 +103,16 @@ struct ContentView: View {
                 }
             }
         }
+        .onOpenURL { url in
+            // Deep link from widget: geobike://nearby, geobike://map, etc.
+            guard let host = url.host() else { return }
+            switch host {
+            case "nearby":    selectedTab = .nearby
+            case "map":       selectedTab = .map
+            case "favorites": selectedTab = .favorites
+            default:          break
+            }
+        }
         .overlay(alignment: .bottom) {
             if showTutorial {
                 TutorialCardView(step: $tutorialStep, selectedTab: $selectedTab) {
